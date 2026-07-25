@@ -1,0 +1,10 @@
+{
+  "name": "inventory-reservation-system",
+  "version": "1.0.0",
+  "description": "Inventory reservation system preventing overselling in high-concurrency flash sales.",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "test": "node test.js"
+  }
+}
