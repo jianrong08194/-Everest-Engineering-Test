@@ -27,13 +27,31 @@ async function runTests() {
   } catch (error) {
     console.error("❌ Test 1 Failed:", error.message);
   }
+  
+  // Test 2: Insufficient Stock Handling
+  try{
+    const manager = new InventoryManager();
+    manager.addItem("LAPTOP-01", "Premium Laptop", 1);
+    console.log("Test 1.1: Reserving 2 laptops...");
+    await manager.reserveItem("res_01", "LAPTOP-01", 1);
+    try{
+      await manager.reserveItem("res_02", "LAPTOP-01", 1);
+    }catch(err){
+      assert.strictEqual(err.message, "Item LAPTOP-01 is not available in the requested quantity.", "Should throw insufficient stock error");
+    }
+    
+    console.log("✅ Test 2 Passed (Properly handled insufficient stock)\n");
 
-  // Test 2: Stock Expiration / Reservation Countdown Timeout
+  } catch (error) {
+    console.error("❌ Test 2 Failed:", error.message);
+  }
+
+  // Test 3: Stock Expiration / Reservation Countdown Timeout
   try {
     const manager = new InventoryManager();
     manager.addItem("PHONE-01", "Smart Phone", 2);
 
-    console.log("Test 2: Reserving 1 phone with a short 1-second expiration window...");
+    console.log("Test 3: Reserving 1 phone with a short 1-second expiration window...");
     await manager.reserveItem("res_02", "PHONE-01", 1, 1000);
 
     let status = manager.items.get("PHONE-01");
@@ -45,20 +63,20 @@ async function runTests() {
     status = manager.items.get("PHONE-01");
     assert.strictEqual(status.reservedQty, 0, "Reserved qty should be 0 after expiration");
     
-    console.log("✅ Test 2 Passed\n");
+    console.log("✅ Test 3 Passed\n");
   } catch (error) {
-    console.error("❌ Test 2 Failed:", error.message);
+    console.error("❌ Test 3 Failed:", error.message);
   }
 
-  // Test 3: Mutex Concurrency / Over-allocation Prevention
+  // Test 4: Mutex Concurrency / Over-allocation Prevention
   try {
     const manager = new InventoryManager();
     manager.addItem("TABLET-01", "Tablet", 1);
 
-    console.log("Test 3: Triggering concurrent reservations for the same item...");
+    console.log("Test 4: Triggering concurrent reservations for the same item...");
     
-    const req1 = manager.reserveItem("res_03A", "TABLET-01", 1);
-    const req2 = manager.reserveItem("res_03B", "TABLET-01", 1);
+    const req1 = manager.reserveItem("res_04A", "TABLET-01", 1);
+    const req2 = manager.reserveItem("res_04B", "TABLET-01", 1);
 
     const results = await Promise.allSettled([req1, req2]);
 
@@ -67,19 +85,19 @@ async function runTests() {
     assert.strictEqual(results[1].status, "rejected", "Second concurrent request should be blocked");
 
     // Confirm the winner so its hold timer doesn't keep the process alive.
-    await manager.itemConfirmation("res_03A");
+    await manager.itemConfirmation("res_04A");
 
-    console.log("✅ Test 3 Passed (Mutex safely blocked concurrent double-booking)");
+    console.log("✅ Test 4 Passed (Mutex safely blocked concurrent double-booking)");
   } catch (error) {
-    console.error("❌ Test 3 Failed:", error.message);
+    console.error("❌ Test 4 Failed:", error.message);
   }
 
-  // Test 4: High-Concurrency Flash Sale Scenario (stock=1, 500 simultaneous requests)
+  // Test 5: High-Concurrency Flash Sale Scenario (stock=1, 500 simultaneous requests)
   try {
     const manager = new InventoryManager();
     manager.addItem("FLASHSALE-01", "Limited Edition Item", 1);
 
-    console.log("Test 4: Firing 500 simultaneous reservation requests for 1 item in stock...");
+    console.log("Test 5: Firing 500 simultaneous reservation requests for 1 item in stock...");
     const requests = Array.from({ length: 500 }, (_, i) =>
       manager.reserveItem(`res_flash_${i}`, "FLASHSALE-01", 1)
     );
@@ -95,9 +113,9 @@ async function runTests() {
     const winnerIndex = results.findIndex((r) => r.status === "fulfilled");
     await manager.itemConfirmation(`res_flash_${winnerIndex}`);
 
-    console.log(`✅ Test 4 Passed (${succeeded} succeeded, ${failed} failed — no overselling)`);
+    console.log(`✅ Test 5 Passed (${succeeded} succeeded, ${failed} failed — no overselling)`);
   } catch (error) {
-    console.error("❌ Test 4 Failed:", error.message);
+    console.error("❌ Test 5 Failed:", error.message);
   }
 
   console.log("\n--- Tests Finished ---");
