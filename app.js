@@ -50,6 +50,17 @@ class InventoryManager {
     return availableStock >= requestedQty;
   }
 
+  reservationCountdown(reservationId, holdTimeMs) {
+    return setTimeout(async () => {
+      try {
+        await this.itemCancellation(reservationId);
+        console.log(`[Timer] Reservation ${reservationId} automatically expired.`);
+      } catch (err) {
+        console.error(`[Timer] Error during automatic expiration of reservation ${reservationId}:`, err.message);
+      }
+    }, holdTimeMs);
+  }
+
   async itemAvailability(sku, requestedQty) {
     const release = await this.skuMutex.acquire(sku);
     try {
@@ -59,7 +70,7 @@ class InventoryManager {
     }
   }
 
-  async reserveItem(reservationId, sku, quantity, holdTimeMs = 5000) {
+  async reserveItem(reservationId, sku, quantity, holdTimeMs = 120000) {
     const release = await this.skuMutex.acquire(sku);
     try {
       if (!this._checkStock(sku, quantity)) {
@@ -81,17 +92,6 @@ class InventoryManager {
     } finally {
       release();
     }
-  }
-
-  reservationCountdown(reservationId, holdTimeMs) {
-    return setTimeout(async () => {
-      try {
-        await this.itemCancellation(reservationId);
-        console.log(`[Timer] Reservation ${reservationId} automatically expired.`);
-      } catch (err) {
-        console.error(`[Timer] Error during automatic expiration of reservation ${reservationId}:`, err.message);
-      }
-    }, holdTimeMs);
   }
 
   async itemConfirmation(reservationId) {
