@@ -32,7 +32,7 @@ async function runTests() {
   try{
     const manager = new InventoryManager();
     manager.addItem("LAPTOP-01", "Premium Laptop", 1);
-    console.log("Test 1.1: Reserving 2 laptops...");
+    console.log("Test 2: Reserving 2 laptops...");
     await manager.reserveItem("res_01", "LAPTOP-01", 1);
     try{
       await manager.reserveItem("res_02", "LAPTOP-01", 1);
