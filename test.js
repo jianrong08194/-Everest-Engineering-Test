@@ -4,6 +4,7 @@ import { InventoryManager } from './app.js';
 async function runTests() {
   console.log("--- Starting InventoryManager Unit Tests ---\n");
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const TEST_HOLD_MS = 2000;
 
   // Test 1: Successful Reservation and Manual Confirmation
   try {
@@ -11,7 +12,7 @@ async function runTests() {
     manager.addItem("LAPTOP-01", "Premium Laptop", 5);
 
     console.log("Test 1: Reserving 2 laptops...");
-    await manager.reserveItem("res_01", "LAPTOP-01", 2);
+    await manager.reserveItem("res_01", "LAPTOP-01", 2, TEST_HOLD_MS);
     
     let status = manager.items.get("LAPTOP-01");
     assert.strictEqual(status.reservedQty, 2, "Reserved qty should be 2 after reservation");
@@ -33,13 +34,15 @@ async function runTests() {
     const manager = new InventoryManager();
     manager.addItem("LAPTOP-01", "Premium Laptop", 1);
     console.log("Test 2: Reserving 2 laptops...");
-    await manager.reserveItem("res_01", "LAPTOP-01", 1);
+    await manager.reserveItem("res_01", "LAPTOP-01", 1, TEST_HOLD_MS);
     try{
-      await manager.reserveItem("res_02", "LAPTOP-01", 1);
+      await manager.reserveItem("res_02", "LAPTOP-01", 1, TEST_HOLD_MS);
     }catch(err){
       assert.strictEqual(err.message, "Item LAPTOP-01 is not available in the requested quantity.", "Should throw insufficient stock error");
     }
-    
+
+    await manager.itemConfirmation("res_01");
+
     console.log("✅ Test 2 Passed (Properly handled insufficient stock)\n");
 
   } catch (error) {
@@ -75,16 +78,14 @@ async function runTests() {
 
     console.log("Test 4: Triggering concurrent reservations for the same item...");
     
-    const req1 = manager.reserveItem("res_04A", "TABLET-01", 1);
-    const req2 = manager.reserveItem("res_04B", "TABLET-01", 1);
+    const req1 = manager.reserveItem("res_04A", "TABLET-01", 1, TEST_HOLD_MS);
+    const req2 = manager.reserveItem("res_04B", "TABLET-01", 1, TEST_HOLD_MS);
 
     const results = await Promise.allSettled([req1, req2]);
 
-    // Explicitly check that req1 won and req2 was blocked by the mutex
     assert.strictEqual(results[0].status, "fulfilled", "First concurrent request should succeed");
     assert.strictEqual(results[1].status, "rejected", "Second concurrent request should be blocked");
 
-    // Confirm the winner so its hold timer doesn't keep the process alive.
     await manager.itemConfirmation("res_04A");
 
     console.log("✅ Test 4 Passed (Mutex safely blocked concurrent double-booking)");
@@ -99,7 +100,7 @@ async function runTests() {
 
     console.log("Test 5: Firing 500 simultaneous reservation requests for 1 item in stock...");
     const requests = Array.from({ length: 500 }, (_, i) =>
-      manager.reserveItem(`res_flash_${i}`, "FLASHSALE-01", 1)
+      manager.reserveItem(`res_flash_${i}`, "FLASHSALE-01", 1, TEST_HOLD_MS)
     );
 
     const results = await Promise.allSettled(requests);
@@ -109,7 +110,6 @@ async function runTests() {
     assert.strictEqual(succeeded, 1, `Expected exactly 1 success, got ${succeeded}`);
     assert.strictEqual(failed, 499, `Expected exactly 499 failures, got ${failed}`);
 
-    // Confirm the winning reservation so its hold timer doesn't keep the process alive.
     const winnerIndex = results.findIndex((r) => r.status === "fulfilled");
     await manager.itemConfirmation(`res_flash_${winnerIndex}`);
 
